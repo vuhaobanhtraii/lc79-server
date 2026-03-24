@@ -8,8 +8,8 @@ app.use(express.json());
 // Config
 // ============================================================
 const MAX_SESSIONS = 500;
-const SOURCE_URL = process.env.SOURCE_URL || 'https://markers-amenities-vertex-gratuit.trycloudflare.com/api/tx';
-const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS) || 5000; // poll mỗi 5 giây
+const SOURCE_URL = process.env.SOURCE_URL || 'https://wtxmd52.tele68.com/v1/txmd5/lite-sessions?cp=R&cl=R&pf=web&at=405f18b5220fdd5674e8bb74bd0d5d14';
+const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS) || 5000;
 
 // ============================================================
 // In-memory store
@@ -268,40 +268,52 @@ async function pollSource() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    // data: { ket_qua, phien, thoi_gian, tong, xuc_xac_1, xuc_xac_2, xuc_xac_3 }
-    const phien = data.phien;
-    if (!phien || phien <= lastPhien) {
-      // Không có phiên mới
+    // Format mới: { list: [{id, dices, point, resultTruyenThong}], typeStat }
+    const list = data.list;
+    if (!Array.isArray(list) || !list.length) {
       pollerStatus.lastPoll = new Date().toISOString();
       return;
     }
 
-    const dice = [data.xuc_xac_1, data.xuc_xac_2, data.xuc_xac_3];
-    const total = data.tong || dice.reduce((a, b) => a + b, 0);
-    const result = mapKetQua(data.ket_qua) || classify(total);
+    // list[0] là phiên mới nhất — xử lý tất cả phiên chưa có trong store
+    let newCount = 0;
+    // list đã sort mới nhất trước, ta duyệt từ cũ đến mới để push đúng thứ tự
+    const sorted = [...list].reverse();
+    for (const item of sorted) {
+      const phien = item.id;
+      if (!phien || phien <= lastPhien) continue;
 
-    // Evaluate accuracy of previous predictions
-    evaluatePredictions(result);
+      const dice = item.dices; // [d1, d2, d3]
+      const total = item.point || dice.reduce((a, b) => a + b, 0);
+      const raw = (item.resultTruyenThong || '').toUpperCase();
+      const result = raw === 'TAI' ? 'tai' : 'xiu';
 
-    const session = {
-      id: phien,
-      phien,
-      dice,
-      total,
-      result,
-      ket_qua: data.ket_qua,
-      thoi_gian: data.thoi_gian,
-      timestamp: new Date().toISOString()
-    };
+      // Evaluate accuracy of previous predictions
+      evaluatePredictions(result);
 
-    sessions.push(session);
-    if (sessions.length > MAX_SESSIONS) sessions = sessions.slice(-MAX_SESSIONS);
-    lastPhien = phien;
-    pollerStatus.totalFetched++;
+      const session = {
+        id: phien,
+        phien,
+        dice,
+        total,
+        result,
+        ket_qua: item.resultTruyenThong,
+        timestamp: new Date().toISOString()
+      };
+
+      sessions.push(session);
+      if (sessions.length > MAX_SESSIONS) sessions = sessions.slice(-MAX_SESSIONS);
+      lastPhien = phien;
+      newCount++;
+    }
+
+    if (newCount > 0) {
+      pollerStatus.totalFetched += newCount;
+      console.log(`[poll] +${newCount} phiên mới | Phiên mới nhất: #${lastPhien} | Tổng: ${sessions.length}`);
+    }
+
     pollerStatus.lastPoll = new Date().toISOString();
     pollerStatus.lastError = null;
-
-    console.log(`[poll] Phiên #${phien} — ${result.toUpperCase()} (${total}) | Tổng: ${sessions.length} phiên`);
   } catch (e) {
     pollerStatus.lastError = e.message;
     pollerStatus.lastPoll = new Date().toISOString();
