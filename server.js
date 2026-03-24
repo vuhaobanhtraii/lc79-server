@@ -107,7 +107,6 @@ let sessions = [];
 let lastPhien = 0;
 let pollerStatus = { lastPoll: null, lastError: null, totalFetched: 0 };
 const predictionLog = [];
-const MAX_PRED_LOG = 2000;
 let pendingPred = null;
 
 // ============================================================
