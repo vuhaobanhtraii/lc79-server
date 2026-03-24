@@ -8,7 +8,8 @@ app.use(express.json());
 // ============================================================
 // Config
 // ============================================================
-const MAX_SESSIONS = 5000;
+const MAX_SESSIONS = 2000;  // 2000 phiên in-memory — đủ để học pattern, không quá cũ
+const MAX_PRED_LOG = 2000;  // 2000 prediction log
 const SOURCE_URL = process.env.SOURCE_URL || 'https://wtxmd52.tele68.com/v1/txmd5/lite-sessions?cp=R&cl=R&pf=web&at=405f18b5220fdd5674e8bb74bd0d5d14';
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS) || 5000;
 
@@ -106,7 +107,7 @@ let sessions = [];
 let lastPhien = 0;
 let pollerStatus = { lastPoll: null, lastError: null, totalFetched: 0 };
 const predictionLog = [];
-const MAX_PRED_LOG = 1000;
+const MAX_PRED_LOG = 2000;
 let pendingPred = null;
 
 // ============================================================
