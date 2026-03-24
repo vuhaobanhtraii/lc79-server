@@ -275,44 +275,6 @@ const methods = {
     }
   },
 
-  dice_trend: {
-    name: 'Xu hướng xúc xắc', weight: 0.8, correct: 0, total: 0,
-    predict(sess) {
-      if (sess.length < 10) return null;
-      const trend = DiceAnalyzer.diceTrend(sess, 8);
-      if (!trend) return null;
-      const momentum = DiceAnalyzer.momentum(sess, 5);
-      // Kết hợp trend + momentum
-      if (momentum && momentum.prediction === trend.prediction) {
-        return {
-          prediction: trend.prediction,
-          confidence: 'medium',
-          reason: `Xúc xắc TB ${trend.totalAvg.toFixed(1)} + momentum ${momentum.delta > 0 ? '↑' : '↓'}${Math.abs(momentum.delta)}`
-        };
-      }
-      const diff = Math.abs(trend.totalAvg - 10.5);
-      if (diff < 0.5) return null;
-      return {
-        prediction: trend.prediction,
-        confidence: diff > 1.5 ? 'medium' : 'low',
-        reason: `Xúc xắc TB ${trend.totalAvg.toFixed(1)} (${trend.prediction === 'tai' ? 'nghiêng Tài' : 'nghiêng Xỉu'})`
-      };
-    }
-  },
-
-  dice_momentum: {
-    name: 'Momentum điểm', weight: 0.6, correct: 0, total: 0,
-    predict(sess) {
-      if (sess.length < 12) return null;
-      const m = DiceAnalyzer.momentum(sess, 6);
-      if (!m) return null;
-      return {
-        prediction: m.prediction,
-        confidence: Math.abs(m.delta) > 2 ? 'medium' : 'low',
-        reason: `Tổng điểm đang ${m.delta > 0 ? 'tăng' : 'giảm'} (Δ${m.delta})`
-      };
-    }
-  }
 };
 
 // ============================================================
