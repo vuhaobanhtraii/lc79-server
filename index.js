@@ -317,78 +317,135 @@ function evaluatePredictions(actualResult) {
 const discoveredPatterns = [];
 
 function discoverPatterns() {
-  if (sessions.length < 30) return;
+  if (sessions.length < 50) return;
   const results = sessions.map(s => s.result);
+  const n = results.length;
 
-  // Các pattern cố định cần kiểm tra
-  const checks = [
-    { name: '2-2', seq: ['tai','tai','xiu','xiu'], next: 'tai' },
-    { name: '3-1', seq: ['tai','tai','tai','xiu'], next: 'tai' },
-    { name: '1-3', seq: ['xiu','xiu','xiu','tai'], next: 'xiu' },
-    { name: '2-1', seq: ['tai','tai','xiu'], next: 'tai' },
-    { name: '1-2', seq: ['xiu','xiu','tai'], next: 'xiu' },
-    { name: '3-3', seq: ['tai','tai','tai','xiu','xiu','xiu'], next: 'tai' },
-    { name: '4-1', seq: ['tai','tai','tai','tai','xiu'], next: 'tai' },
-    { name: '1-4', seq: ['xiu','xiu','xiu','xiu','tai'], next: 'xiu' },
-    { name: '2-2-2', seq: ['tai','tai','xiu','xiu','tai','tai'], next: 'xiu' },
-    { name: '1-1-2', seq: ['tai','xiu','tai','xiu','tai','tai'], next: 'xiu' },
-    { name: '2-1-2', seq: ['tai','tai','xiu','tai','tai'], next: 'xiu' },
+  // ── 1. Quét pattern cố định (có định nghĩa sẵn next) ──────
+  const fixedChecks = [
+    { name: '2-2', seq: ['tai','tai','xiu','xiu'] },
+    { name: '3-1', seq: ['tai','tai','tai','xiu'] },
+    { name: '1-3', seq: ['xiu','xiu','xiu','tai'] },
+    { name: '2-1', seq: ['tai','tai','xiu'] },
+    { name: '1-2', seq: ['xiu','xiu','tai'] },
+    { name: '3-3', seq: ['tai','tai','tai','xiu','xiu','xiu'] },
+    { name: '4-1', seq: ['tai','tai','tai','tai','xiu'] },
+    { name: '1-4', seq: ['xiu','xiu','xiu','xiu','tai'] },
+    { name: '2-2-2', seq: ['tai','tai','xiu','xiu','tai','tai'] },
+    { name: '1-1-2', seq: ['tai','xiu','tai','xiu','tai','tai'] },
+    { name: '2-1-2', seq: ['tai','tai','xiu','tai','tai'] },
   ];
 
-  for (const check of checks) {
-    const pStr = check.seq.join(',');
-    let hits = 0, nextTai = 0, nextXiu = 0;
-    for (let i = 0; i <= results.length - check.seq.length - 1; i++) {
-      if (results.slice(i, i + check.seq.length).join(',') === pStr) {
-        hits++;
-        if (results[i + check.seq.length] === 'tai') nextTai++;
-        else nextXiu++;
-      }
+  // ── 2. Tự động sinh pattern từ lịch sử (streak-based) ─────
+  // Phân tích chuỗi streak thực tế: T5-X1-T5 → "5-1-5"
+  const autoChecks = [];
+  const streaks = [];
+  let cur = results[0], len = 1;
+  for (let i = 1; i < n; i++) {
+    if (results[i] === cur) { len++; }
+    else { streaks.push({ val: cur, len }); cur = results[i]; len = 1; }
+  }
+  streaks.push({ val: cur, len });
+
+  // Tìm pattern 3 streak liên tiếp (A-B-A kiểu) xuất hiện nhiều
+  const streakPatternMap = {};
+  for (let i = 0; i < streaks.length - 3; i++) {
+    const key = `${streaks[i].len}-${streaks[i+1].len}-${streaks[i+2].len}`;
+    const nextVal = streaks[i+3] ? streaks[i+3].val : null;
+    if (!streakPatternMap[key]) streakPatternMap[key] = { count: 0, tai: 0, xiu: 0, firstVal: streaks[i].val };
+    streakPatternMap[key].count++;
+    if (nextVal === 'tai') streakPatternMap[key].tai++;
+    else if (nextVal === 'xiu') streakPatternMap[key].xiu++;
+  }
+
+  // Chuyển streak pattern thành seq để check
+  for (const [key, stat] of Object.entries(streakPatternMap)) {
+    if (stat.count < 6) continue;
+    const parts = key.split('-').map(Number);
+    const nextPred = stat.tai >= stat.xiu ? 'tai' : 'xiu';
+    const nextPct = Math.round(Math.max(stat.tai, stat.xiu) / (stat.tai + stat.xiu || 1) * 100);
+    if (nextPct < 62) continue;
+
+    // Tạo seq từ streak pattern
+    const seq = [];
+    const vals = ['tai', 'xiu']; // alternating
+    let v = stat.firstVal;
+    for (const plen of parts) {
+      for (let k = 0; k < plen; k++) seq.push(v);
+      v = v === 'tai' ? 'xiu' : 'tai';
     }
-    const freq = hits / Math.max(1, results.length - check.seq.length);
-    if (freq < 0.08 || hits < 5) continue; // cần đủ mẫu
+    autoChecks.push({ name: `s${key}`, seq, nextPred, nextPct, hits: stat.count });
+  }
 
-    // Xác định next dựa trên dữ liệu thực tế
-    const nextPred = nextTai >= nextXiu ? 'tai' : 'xiu';
-    const nextPct = Math.round(Math.max(nextTai, nextXiu) / hits * 100);
+  // ── 3. Xử lý tất cả checks ────────────────────────────────
+  const allChecks = [...fixedChecks.map(c => ({ ...c, nextPred: null, nextPct: null, hits: null })), ...autoChecks];
 
+  for (const check of allChecks) {
+    const pStr = check.seq.join(',');
+    let hits = check.hits || 0;
+    let nextTai = 0, nextXiu = 0;
+
+    if (!check.hits) { // fixed checks cần đếm lại
+      for (let i = 0; i <= n - check.seq.length - 1; i++) {
+        if (results.slice(i, i + check.seq.length).join(',') === pStr) {
+          hits++;
+          if (results[i + check.seq.length] === 'tai') nextTai++;
+          else nextXiu++;
+        }
+      }
+    } else {
+      nextTai = check.nextPred === 'tai' ? Math.round(hits * check.nextPct / 100) : hits - Math.round(hits * check.nextPct / 100);
+      nextXiu = hits - nextTai;
+    }
+
+    if (hits < 5) continue;
+    const nextPred = check.nextPred || (nextTai >= nextXiu ? 'tai' : 'xiu');
+    const nextPct = check.nextPct || Math.round(Math.max(nextTai, nextXiu) / hits * 100);
+    const freq = hits / Math.max(1, n - check.seq.length);
+
+    // Cập nhật discoveredPatterns
     const existing = discoveredPatterns.find(p => p.name === check.name);
     if (!existing) {
-      discoveredPatterns.push({
-        name: check.name, frequency: Math.round(freq * 100) / 100,
-        hits, nextPred, nextPct, discoveredAt: new Date().toISOString()
-      });
+      discoveredPatterns.push({ name: check.name, frequency: Math.round(freq * 100) / 100, hits, nextPred, nextPct, discoveredAt: new Date().toISOString() });
     } else {
-      existing.frequency = Math.round(freq * 100) / 100;
-      existing.hits = hits; existing.nextPred = nextPred; existing.nextPct = nextPct;
-      existing.updatedAt = new Date().toISOString();
+      Object.assign(existing, { frequency: Math.round(freq * 100) / 100, hits, nextPred, nextPct, updatedAt: new Date().toISOString() });
     }
 
-    // Tự động thêm vào methods nếu pattern đủ mạnh (>60% và >=10 mẫu)
+    // Tự động thêm method nếu đủ mạnh
     const methodKey = `auto_${check.name.replace(/-/g, '_')}`;
-    if (nextPct >= 60 && hits >= 10 && !methods[methodKey]) {
+    if (nextPct >= 60 && hits >= 8) {
       const seqCopy = [...check.seq];
       const predNext = nextPred;
-      methods[methodKey] = {
-        name: `Cầu ${check.name}`, weight: 0.6, correct: 0, total: 0,
-        predict(sess) {
-          if (sess.length < seqCopy.length) return null;
-          const tail = sess.slice(-seqCopy.length).map(s => s.result);
-          if (tail.join(',') !== seqCopy.join(',')) return null;
-          return {
-            prediction: predNext,
-            confidence: nextPct > 75 ? 'high' : 'medium',
-            reason: `Cầu ${check.name} → ${predNext === 'tai' ? 'Tài' : 'Xỉu'} (${nextPct}% / ${hits} mẫu)`
-          };
-        }
-      };
-      console.log(`[discover] Thêm method mới: ${methodKey} (${nextPct}% / ${hits} mẫu)`);
-    }
-
-    // Cập nhật weight nếu method đã tồn tại
-    if (methods[methodKey]) {
+      const pctCopy = nextPct;
+      const hitsCopy = hits;
+      if (!methods[methodKey]) {
+        methods[methodKey] = {
+          name: `Cầu ${check.name}`, weight: 0.5, correct: 0, total: 0,
+          predict(sess) {
+            if (sess.length < seqCopy.length) return null;
+            const tail = sess.slice(-seqCopy.length).map(s => s.result);
+            if (tail.join(',') !== seqCopy.join(',')) return null;
+            return {
+              prediction: predNext,
+              confidence: pctCopy > 75 ? 'high' : 'medium',
+              reason: `Cầu ${check.name} → ${predNext === 'tai' ? 'Tài' : 'Xỉu'} (${pctCopy}% / ${hitsCopy} mẫu)`
+            };
+          }
+        };
+        console.log(`[discover] +method: ${methodKey} (${nextPct}% / ${hits} mẫu)`);
+      }
+      // Cập nhật weight theo accuracy thực tế
       const acc = nextPct / 100;
-      methods[methodKey].weight = Math.max(0.3, Math.min(1.2, 0.2 + acc * 1.0));
+      methods[methodKey].weight = Math.max(0.2, Math.min(1.2, 0.1 + acc * 1.1));
+    }
+  }
+
+  // Xóa method yếu (accuracy thực tế < 45% sau 20+ lần dự đoán)
+  for (const [key, m] of Object.entries(methods)) {
+    if (!key.startsWith('auto_')) continue;
+    if (m.total >= 20 && m.correct / m.total < 0.45) {
+      delete methods[key];
+      console.log(`[discover] -method: ${key} (accuracy thấp)`);
     }
   }
 }
