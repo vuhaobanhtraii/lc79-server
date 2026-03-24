@@ -213,11 +213,55 @@ const SessionAnalyzer = {
 };
 
 // ============================================================
+// DicePatternAnalyzer — học từ lịch sử xúc xắc
+// ============================================================
+const DicePatternAnalyzer = {
+  // Phân nhóm mỗi viên: 1-2=L, 3-4=M, 5-6=H
+  bucket(v) { return v <= 2 ? 'L' : v <= 4 ? 'M' : 'H'; },
+  diceKey(dice) { return dice.map(d => this.bucket(d)).join(''); },
+
+  // Học: sau khi ra key này thì phiên tiếp theo thường Tài hay Xỉu?
+  buildMap(sess) {
+    const map = {};
+    for (let i = 0; i < sess.length - 1; i++) {
+      const key = this.diceKey(sess[i].dice);
+      const next = sess[i + 1];
+      if (!map[key]) map[key] = { count: 0, tai: 0, xiu: 0, totalSum: 0 };
+      map[key].count++;
+      map[key][next.result]++;
+      map[key].totalSum += next.total;
+    }
+    return map;
+  },
+
+  predict(sess) {
+    if (sess.length < 20) return null;
+    const map = this.buildMap(sess);
+    const lastKey = this.diceKey(sess[sess.length - 1].dice);
+    const stat = map[lastKey];
+    if (!stat || stat.count < 5) return null;
+
+    const taiPct = stat.tai / stat.count;
+    const xiuPct = stat.xiu / stat.count;
+    const maxPct = Math.max(taiPct, xiuPct);
+    if (maxPct < 0.60) return null; // không đủ xu hướng rõ
+
+    const pred = taiPct >= xiuPct ? 'tai' : 'xiu';
+    const avgTotal = Math.round(stat.totalSum / stat.count * 10) / 10;
+    return {
+      prediction: pred,
+      confidence: maxPct > 0.75 ? 'high' : 'medium',
+      reason: `Xúc xắc [${lastKey}] → TB ${avgTotal} | ${stat.tai}T/${stat.xiu}X/${stat.count} mẫu`
+    };
+  }
+};
+
+// ============================================================
 // Methods registry
 // ============================================================
 const methods = {
   smart_pattern: {
-    name: 'Cầu thông minh', weight: 1.2, correct: 0, total: 0,
+    name: 'Cầu thông minh', weight: 1.5, correct: 0, total: 0,
     predict(sess) {
       if (sess.length < 5) return null;
       const p = PatternAnalyzer.analyze(sess);
@@ -242,39 +286,10 @@ const methods = {
     }
   },
 
-  majority: {
-    name: 'Đa số 10 phiên', weight: 0.7, correct: 0, total: 0,
-    predict(sess) {
-      if (sess.length < 5) return null;
-      const r = SessionAnalyzer.getRatio(sess, 10);
-      const pred = r.taiPct >= r.xiuPct ? 'tai' : 'xiu';
-      const pct = Math.max(r.taiPct, r.xiuPct);
-      return { prediction: pred, confidence: pct > 70 ? 'high' : pct > 55 ? 'medium' : 'low', reason: `Đa số ${pred === 'tai' ? 'Tài' : 'Xỉu'} ${pct}% trong 10 phiên` };
-    }
-  },
-
-  majority_30: {
-    name: 'Đa số 30 phiên', weight: 0.6, correct: 0, total: 0,
-    predict(sess) {
-      if (sess.length < 15) return null;
-      const r = SessionAnalyzer.getRatio(sess, 30);
-      const pred = r.taiPct >= r.xiuPct ? 'tai' : 'xiu';
-      const pct = Math.max(r.taiPct, r.xiuPct);
-      return { prediction: pred, confidence: pct > 65 ? 'medium' : 'low', reason: `Đa số ${pred === 'tai' ? 'Tài' : 'Xỉu'} ${pct}% trong 30 phiên` };
-    }
-  },
-
-  anti_majority: {
-    name: 'Ngược đa số', weight: 0.5, correct: 0, total: 0,
-    predict(sess) {
-      if (sess.length < 20) return null;
-      const r = SessionAnalyzer.getRatio(sess, 20);
-      if (r.taiPct > 68) return { prediction: 'xiu', confidence: 'low', reason: `Tài quá nhiều (${r.taiPct}%) — kỳ vọng bù` };
-      if (r.xiuPct > 68) return { prediction: 'tai', confidence: 'low', reason: `Xỉu quá nhiều (${r.xiuPct}%) — kỳ vọng bù` };
-      return null;
-    }
-  },
-
+  dice_pattern: {
+    name: 'Phân tích xúc xắc', weight: 0.8, correct: 0, total: 0,
+    predict(sess) { return DicePatternAnalyzer.predict(sess); }
+  }
 };
 
 // ============================================================
