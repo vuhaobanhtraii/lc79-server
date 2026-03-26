@@ -1,13 +1,13 @@
 {
-  "name": "taixiu-predictor-api",
+  "name": "api-sun",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "sun.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node sun.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "pg": "^8.11.3"
+    "express": "^4.18.2",
+    "ws": "^8.17.0"
   }
 }
