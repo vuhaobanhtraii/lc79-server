@@ -53,6 +53,7 @@ function connectWS() {
           return { Phien:p.sid, Xuc_xac_1:p.d1, Xuc_xac_2:p.d2, Xuc_xac_3:p.d3, Tong:t, Ket_qua:t>10?'Tài':'Xỉu' };
         }).reverse();
         console.log(`[📋] Lịch sử: ${lichSu.length} phiên`);
+        buildHistoricalPredictions();
         runPrediction();
       }
 
@@ -282,6 +283,70 @@ function detectBreak(h, preds) {
   breakDetectionData.riskLevel = risk;
   breakDetectionData.suspiciousPatterns = signals;
   return{risk_level:risk,break_probability:prob,suspicious_signals:signals,recommendation:rec,should_stop:prob>=65};
+}
+
+// ===== BUILD HISTORICAL PREDICTIONS (50 phiên lịch sử khi khởi động) =====
+function buildHistoricalPredictions() {
+  if (lichSu.length < 20 || predictionHistory.length > 0) return;
+  console.log('[📊] Đang tạo lịch sử dự đoán 50 phiên...');
+
+  const built = [];
+  const limit = Math.min(50, lichSu.length - 20);
+
+  for (let i = 0; i < limit; i++) {
+    const histAtTime = lichSu.slice(i + 1);
+    if (histAtTime.length < 5) continue;
+
+    // Dùng learning data hiện tại (đã load từ file) để confidence chính xác hơn
+    const house = houseDetect(histAtTime, built);
+    const preds = algos.map(fn => fn(histAtTime)).filter(Boolean);
+    if (house) preds.push(house);
+    if (preds.length === 0) continue;
+
+    preds.sort((a,b) => b.confidence - a.confidence);
+    const best = preds[0];
+    const taiV = preds.filter(p=>p.prediction==='Tài').length;
+    const xiuV = preds.filter(p=>p.prediction==='Xỉu').length;
+    let fp = best.prediction, fc = best.confidence;
+    if (preds.length >= 3) {
+      if (taiV > xiuV * 2) { fp = 'Tài'; fc = Math.min(fc+2, 85); }
+      else if (xiuV > taiV * 2) { fp = 'Xỉu'; fc = Math.min(fc+2, 85); }
+    }
+    fc = Math.max(55, Math.min(85, fc));
+
+    const actual = lichSu[i];
+    const ok = fp === actual.Ket_qua;
+
+    // Cập nhật learning từ lịch sử luôn (để lần sau càng chính xác hơn)
+    learn(best.pattern, ok);
+
+    const entry = {
+      phien: actual.Phien.toString(),
+      du_doan: fp,
+      ti_le: fc.toFixed(0) + '%',
+      thuat_toan: best.pattern,
+      mo_ta: best.description,
+      so_pattern: preds.length,
+      tai_votes: taiV,
+      xiu_votes: xiuV,
+      top_patterns: preds.slice(0,5).map(p=>({pattern:p.pattern,prediction:p.prediction,confidence:p.confidence.toFixed(0)+'%',description:p.description})),
+      break_detection: { risk_level:'safe', break_probability:'0%', recommendation:'✅ AN TOÀN', signals:[] },
+      house_intervention: { detected: false },
+      kq: ok ? 'dung' : 'sai',
+      ket_qua: actual.Ket_qua,
+      xuc_xac: `${actual.Xuc_xac_1}-${actual.Xuc_xac_2}-${actual.Xuc_xac_3}`,
+      tong: actual.Tong.toString(),
+      timestamp: new Date().toISOString()
+    };
+
+    built.push(entry);
+  }
+
+  // Lưu learning data sau khi học từ lịch sử
+  saveLD();
+
+  predictionHistory = built.reverse();
+  console.log(`[📊] Đã tạo ${predictionHistory.length} phiên lịch sử dự đoán`);
 }
 
 // ===== PREDICTION ENGINE =====
