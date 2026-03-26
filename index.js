@@ -87,8 +87,8 @@ const LEARNING_FILE = './learning.json';
 let ld = {};
 try { if (fs.existsSync(LEARNING_FILE)) ld = JSON.parse(fs.readFileSync(LEARNING_FILE,'utf8')); } catch(e){}
 ['cau_bet','cau_dao_1_1','cau_1_2_3','cau_3_2_1','cau_2_2','cau_2_1_2','nhip_nghieng_5','nhip_nghieng_7',
- 'gap_thep_martingale','phan_tich_tong','xu_huong_manh','cau_nhay','fibonacci','odd_even_analysis',
- 'total_sum_trend','house_intervention'].forEach(p => { if (!ld[p]) ld[p]={total:0,correct:0,adj:0,recent:[]}; });
+ 'gap_thep_martingale','phan_tich_tong','phan_tich_xuc_xac','xu_huong_manh','cau_nhay','fibonacci',
+ 'odd_even_analysis','total_sum_trend','house_intervention'].forEach(p => { if (!ld[p]) ld[p]={total:0,correct:0,adj:0,recent:[]}; });
 
 function saveLD() { try { fs.writeFileSync(LEARNING_FILE, JSON.stringify(ld)); } catch(e){} }
 
@@ -98,9 +98,10 @@ function learn(pattern, ok) {
   d.recent.unshift(ok?1:0); if(d.recent.length>20)d.recent.pop();
   const acc=d.correct/d.total;
   let rAcc=acc;
-  if(d.recent.length>=5){let ws=0,wt=0;d.recent.forEach((v,i)=>{const w=1/(i+1);ws+=v*w;wt+=w;});rAcc=ws/wt;}
+  if(d.recent.length>=5){let wSum=0,wTotal=0;d.recent.forEach((v,i)=>{const w=1/(i+1);wSum+=v*w;wTotal+=w;});rAcc=wSum/wTotal;}
   const f=acc*0.4+rAcc*0.6;
   if(d.total>=3){if(f>=0.75)d.adj=8;else if(f>=0.65)d.adj=5;else if(f>=0.58)d.adj=3;else if(f>=0.52)d.adj=0;else if(f>=0.45)d.adj=-3;else if(f>=0.38)d.adj=-5;else d.adj=-8;}
+  console.log(`📚 [Sun.win] Học: ${pattern} - Overall: ${d.correct}/${d.total} (${(acc*100).toFixed(1)}%) | Recent: ${(rAcc*100).toFixed(1)}% | Adj: ${d.adj>0?'+':''}${d.adj}%`);
   if(d.total%5===0)saveLD();
 }
 
@@ -205,37 +206,82 @@ const algos = [
     if(inc>=4)return{pattern:'total_sum_trend',prediction:'Tài',confidence:c('total_sum_trend',61),description:`Tổng tăng: ${inc}/5`};
     if(dec>=4)return{pattern:'total_sum_trend',prediction:'Xỉu',confidence:c('total_sum_trend',61),description:`Tổng giảm: ${dec}/5`};
     return null;
+  },
+  h => { // analyzeXucXac
+    if(h.length<10)return null; let chan=0,le=0;
+    h.slice(0,10).forEach(x=>{
+      const x1=parseInt(x.Xuc_xac_1),x2=parseInt(x.Xuc_xac_2),x3=parseInt(x.Xuc_xac_3);
+      if(!isNaN(x1)&&!isNaN(x2)&&!isNaN(x3)){[x1,x2,x3].filter(v=>v%2===0).length>=2?chan++:le++;}
+    });
+    if(chan>=7)return{pattern:'phan_tich_xuc_xac',prediction:'Tài',confidence:c('phan_tich_xuc_xac',58),description:`Xúc xắc chẵn: ${chan}/10`};
+    if(le>=7)return{pattern:'phan_tich_xuc_xac',prediction:'Xỉu',confidence:c('phan_tich_xuc_xac',58),description:`Xúc xắc lẻ: ${le}/10`};
+    return null;
   }
 ];
 
 function houseDetect(h, preds) {
   if(h.length<20||preds.length<10)return null;
   let score=0; const signals=[];
+
+  // Check extended streaks (8+ phiên)
+  const extendedStreaks = h.slice(0,20).filter((item, idx, arr) => {
+    if(idx===0)return false;
+    let streak=1;
+    for(let i=idx-1;i>=0&&i>=idx-10;i--){if(arr[i].Ket_qua===item.Ket_qua)streak++;else break;}
+    return streak>=8;
+  });
+  if(extendedStreaks.length>0){score+=30;signals.push('Chuỗi bất thường dài (8+ phiên) - Nghi ngờ can thiệp');}
+
   const extremes=h.slice(0,20).map(x=>parseInt(x.Tong)).filter(t=>!isNaN(t)&&(t<=4||t>=17));
-  if(extremes.length>=5){score+=25;signals.push(`Tổng cực đoan ${extremes.length}/20`);}
+  if(extremes.length>=5){score+=25;signals.push(`Tổng điểm cực đoan xuất hiện ${extremes.length}/20 lần`);}
+
   const recent=preds.filter(p=>p.kq!=='dang_doi').slice(0,10);
-  if(recent.length>=8){const wr=recent.filter(p=>p.kq==='sai').length/recent.length*100;if(wr>=70){score+=35;signals.push(`Tỷ lệ sai: ${wr.toFixed(0)}%`);}}
+  if(recent.length>=8){const wr=recent.filter(p=>p.kq==='sai').length/recent.length*100;if(wr>=70){score+=35;signals.push(`Tỷ lệ sai cao bất thường: ${wr.toFixed(0)}%`);}}
+
   const tai10=h.slice(0,10).filter(r=>r.Ket_qua==='Tài').length;
-  if(tai10>=9||(10-tai10)>=9){score+=20;signals.push('Mất cân bằng nghiêm trọng');}
+  if(tai10>=9||(10-tai10)>=9){score+=20;signals.push('Mất cân bằng nghiêm trọng 10 ván gần');}
+
   if(score<50)return null;
-  return{pattern:'house_intervention',prediction:h[0].Ket_qua==='Tài'?'Xỉu':'Tài',confidence:c('house_intervention',Math.min(58+score/8,72)),description:`Can thiệp nhà cái (${score}đ)`,intervention_signals:signals};
+  return{pattern:'house_intervention',prediction:h[0].Ket_qua==='Tài'?'Xỉu':'Tài',confidence:c('house_intervention',Math.min(58+score/8,72)),description:`AI phát hiện can thiệp nhà cái - Điểm nghi ngờ: ${score}/100`,intervention_signals:signals};
 }
 
 function detectBreak(h, preds) {
   const signals=[]; let prob=0;
-  if(cWrong>=5){signals.push(`${cWrong} lần sai liên tiếp`);prob+=30;}
+  if(cWrong>=5){signals.push(`⚠️ ${cWrong} lần sai liên tiếp - Nhà cái đang kiểm soát`);prob+=30;}
   if(cWrong>=3)prob+=18;
+
   const r10=preds.filter(p=>p.kq!=='dang_doi').slice(0,10);
-  if(r10.length>=10){const acc=r10.filter(p=>p.kq==='dung').length/10*100;if(acc<35){signals.push(`Chính xác: ${acc.toFixed(0)}%`);prob+=25;}else if(acc<50){signals.push(`Chính xác thấp: ${acc.toFixed(0)}%`);prob+=15;}}
-  if(h.length>=5&&h.slice(0,5).every(r=>r.Ket_qua===h[0].Ket_qua)){signals.push('5 phiên liên tiếp cùng kết quả');prob+=18;}
-  if(h.length>=8){const t8=h.slice(0,8).filter(r=>r.Ket_qua==='Tài').length;if(t8>=7||(8-t8)>=7){signals.push('Mất cân bằng 8 phiên');prob+=12;}}
+  if(r10.length>=10){
+    const acc=r10.filter(p=>p.kq==='dung').length/10*100;
+    if(acc<35){signals.push(`🔴 Độ chính xác 10 ván: ${acc.toFixed(0)}% - Cực kỳ thấp`);prob+=25;}
+    else if(acc<50){signals.push(`⚠️ Độ chính xác 10 ván: ${acc.toFixed(0)}% - Dưới mức bình thường`);prob+=15;}
+  }
+
+  if(h.length>=5&&h.slice(0,5).every(r=>r.Ket_qua===h[0].Ket_qua)){signals.push('🔴 5 phiên liên tiếp cùng kết quả - Bất thường cao');prob+=18;}
+
+  if(h.length>=8){const t8=h.slice(0,8).filter(r=>r.Ket_qua==='Tài').length;if(t8>=7||(8-t8)>=7){signals.push('⚠️ Mất cân bằng nghiêm trọng 8 phiên gần');prob+=12;}}
+
+  if(h.length>=15){
+    const totals15=h.slice(0,15).map(x=>parseInt(x.Tong)).filter(t=>!isNaN(t));
+    const extremes=totals15.filter(t=>t<=4||t>=17);
+    if(extremes.length>=4){signals.push(`🔴 Xuất hiện ${extremes.length} tổng điểm cực đoan trong 15 ván`);prob+=20;}
+  }
+
+  const r20=preds.filter(p=>p.kq!=='dang_doi').slice(0,20);
+  if(r20.length>=15){
+    const highConfWrong=r20.filter(p=>{const conf=parseInt(p.ti_le);return !isNaN(conf)&&conf>=75&&p.kq==='sai';});
+    if(highConfWrong.length>=5){signals.push(`⚠️ ${highConfWrong.length} dự đoán độ tin cậy cao bị sai - Nghi ngờ can thiệp`);prob+=22;}
+  }
+
   prob=Math.min(prob,98);
-  let risk='safe',rec='✅ AN TOÀN';
-  if(prob>=65){risk='critical';rec='🛑 DỪNG NGAY';}
-  else if(prob>=50){risk='high';rec='⛔ NGUY HIỂM - Tạm dừng';}
-  else if(prob>=35){risk='medium';rec='⚠️ CẢNH BÁO - Giảm cược';}
-  else if(prob>=20){risk='low_warning';rec='⚡ CHÚ Ý - Thận trọng';}
-  return{risk_level:risk,break_probability:prob,suspicious_signals:signals,recommendation:rec};
+  let risk='safe',rec='✅ AN TOÀN - Có thể tiếp tục bình thường';
+  if(prob>=65){risk='critical';rec='🛑 CỰC KỲ NGUY HIỂM - DỪNG NGAY LẬP TỨC';}
+  else if(prob>=50){risk='high';rec='⛔ NGUY HIỂM - Nên tạm dừng chơi hoặc giảm cược tối thiểu';}
+  else if(prob>=35){risk='medium';rec='⚠️ CẢNH BÁO - Giảm mức cược xuống 50%';}
+  else if(prob>=20){risk='low_warning';rec='⚡ CHÚ Ý - Theo dõi sát, chơi thận trọng';}
+  breakDetectionData.riskLevel = risk;
+  breakDetectionData.suspiciousPatterns = signals;
+  return{risk_level:risk,break_probability:prob,suspicious_signals:signals,recommendation:rec,should_stop:prob>=65};
 }
 
 // ===== PREDICTION ENGINE =====
@@ -243,6 +289,7 @@ let currentPrediction = null;
 let predictionHistory = [];
 let lastProcessedPhien = null;
 let cWrong = 0;
+let breakDetectionData = { consecutiveWrong: 0, suspiciousPatterns: [], riskLevel: 'low' };
 
 function updateResults() {
   if(lichSu.length===0)return;
@@ -255,8 +302,15 @@ function updateResults() {
       const ok=p.du_doan===latest.Ket_qua;
       p.kq=ok?'dung':'sai';
       learn(p.thuat_toan,ok);
-      if(ok)cWrong=0;else cWrong++;
-      console.log(`${ok?'✅':'❌'} Phiên #${p.phien}: ${ok?'ĐÚNG':'SAI'} - Dự đoán ${p.du_doan}, thực tế ${latest.Ket_qua}`);
+      if(ok){
+        cWrong=0;
+        breakDetectionData.consecutiveWrong=0;
+        console.log(`✅ [Sun.win] Phiên #${p.phien}: ĐÚNG - ${p.du_doan} (${latest.Xuc_xac_1}-${latest.Xuc_xac_2}-${latest.Xuc_xac_3} = ${latest.Tong})`);
+      } else {
+        cWrong++;
+        breakDetectionData.consecutiveWrong++;
+        console.log(`❌ [Sun.win] Phiên #${p.phien}: SAI - Dự đoán ${p.du_doan}, thực tế ${latest.Ket_qua} (${latest.Xuc_xac_1}-${latest.Xuc_xac_2}-${latest.Xuc_xac_3} = ${latest.Tong})`);
+      }
       break;
     }
   }
@@ -270,7 +324,10 @@ function runPrediction() {
   const house=houseDetect(lichSu,predictionHistory);
   const preds=algos.map(fn=>fn(lichSu)).filter(Boolean);
   if(house)preds.push(house);
-  if(preds.length===0){lastProcessedPhien=currentPhien;return;}
+  if(preds.length===0){
+    console.log('⚠️ [Sun.win] Không tìm thấy pattern nào');
+    lastProcessedPhien=currentPhien;return;
+  }
 
   preds.sort((a,b)=>b.confidence-a.confidence);
   const best=preds[0];
@@ -298,28 +355,126 @@ function runPrediction() {
   predictionHistory.unshift(newPred);
   if(predictionHistory.length>500)predictionHistory=predictionHistory.slice(0,500);
   lastProcessedPhien=currentPhien;
-  console.log(`🎲 Phiên #${nextPhien}: ${fp} (${fc.toFixed(0)}%) | ${best.pattern} | Tài:${taiV} Xỉu:${xiuV}`);
+  console.log(`\n🎲 [Sun.win] Dự đoán phiên #${nextPhien}: ${fp} (${fc.toFixed(0)}%) - ${best.pattern}`);
+  console.log(`   📊 Patterns: ${preds.length} | Tài: ${taiV} | Xỉu: ${xiuV}`);
+  console.log(`   ${brk.recommendation}`);
+  if(house) console.log(`   🚨 AI phát hiện can thiệp nhà cái - Confidence: ${house.confidence.toFixed(0)}%`);
 }
 
 // ===== API =====
+// Primary endpoints
 app.get('/api/prediction', (req,res) => res.json(currentPrediction||{phien:'0',du_doan:'dang_doi',ti_le:'0%',kq:'dang_doi'}));
 app.get('/api/prediction-history', (req,res) => res.json(predictionHistory));
 app.get('/api/lichsu', (req,res) => res.json(lichSu));
+
+// Alias endpoints matching original /api/sunwin/... routes
+app.get('/api/sunwin/prediction', (req,res) => {
+  if(!currentPrediction) return res.json({game:'Sun.win',phien:'0',du_doan:'dang_doi',ti_le_thang:'0%',kq_du_doan:'dang_doi',ket_qua:'dang_doi',xuc_xac_1:'dang_doi',xuc_xac_2:'dang_doi',xuc_xac_3:'dang_doi',tong:'dang_doi'});
+  res.json(currentPrediction);
+});
+app.get('/api/sunwin/prediction-history', (req,res) => res.json(predictionHistory));
+app.get('/api/sunwin/history', (req,res) => res.json(lichSu));
 app.get('/api/stats', (req,res) => {
   const last20=lichSu.slice(0,20);
   const tai=last20.filter(x=>x.Ket_qua==='Tài').length;
   const done=predictionHistory.filter(p=>p.kq!=='dang_doi');
   const correct=done.filter(p=>p.kq==='dung').length;
+  const totalPredictions=done.length;
+
+  const patternStats={};
+  done.forEach(p=>{
+    if(!patternStats[p.thuat_toan])patternStats[p.thuat_toan]={total:0,correct:0};
+    patternStats[p.thuat_toan].total++;
+    if(p.kq==='dung')patternStats[p.thuat_toan].correct++;
+  });
+
   res.json({
-    last20:{tai,xiu:last20.length-tai,total:last20.length},
-    accuracy:{total:done.length,correct,wrong:done.length-correct,rate:done.length>0?((correct/done.length)*100).toFixed(1)+'%':'0%'},
-    currentPrediction, consecutiveWrong:cWrong
+    game:'Sun.win',
+    last20Sessions:{tai,xiu:last20.length-tai,total:last20.length},
+    predictionStats:{
+      total:totalPredictions,correct,wrong:totalPredictions-correct,
+      accuracy:totalPredictions>0?((correct/totalPredictions)*100).toFixed(1)+'%':'0%'
+    },
+    patternPerformance:patternStats,
+    latestSession:lichSu[0]||null,
+    currentPrediction,
+    consecutiveWrong:cWrong
   });
 });
-app.get('/', (req,res) => res.sendFile(path.join(__dirname,'index.html')));
+
+app.get('/api/learning', (req,res) => {
+  const learningStats={};
+  Object.keys(ld).forEach(pattern=>{
+    const d=ld[pattern];
+    learningStats[pattern]={
+      total:d.total,correct:d.correct,
+      accuracy:d.total>0?((d.correct/d.total)*100).toFixed(1)+'%':'0%',
+      confidence_adjustment:d.adj
+    };
+  });
+  res.json({
+    game:'Sun.win',
+    learning_data:learningStats,
+    total_learning_sessions:Object.values(ld).reduce((sum,p)=>sum+p.total,0)
+  });
+});
+
+app.get('/api/break-detection', (req,res) => {
+  if(lichSu.length===0||predictionHistory.length===0){
+    return res.json({game:'Sun.win',error:'Chưa đủ dữ liệu',risk_level:'unknown'});
+  }
+  const detection=detectBreak(lichSu,predictionHistory);
+  res.json({
+    game:'Sun.win',
+    message:'Hệ thống phát hiện nhà cái bẻ cầu - Sun.win',
+    current_status:{
+      risk_level:detection.risk_level,
+      break_probability:detection.break_probability+'%',
+      consecutive_wrong:cWrong,
+      recommendation:detection.recommendation
+    },
+    analysis:{suspicious_signals:detection.suspicious_signals,total_signals:detection.suspicious_signals.length},
+    advice:{
+      should_continue:detection.break_probability<60,
+      suggested_action:detection.break_probability>=60?'⚠️ Tạm dừng hoặc giảm cược xuống tối thiểu':'✅ An toàn, có thể tiếp tục',
+      reason:detection.suspicious_signals.length>0?detection.suspicious_signals.join(', '):'Không phát hiện tín hiệu bất thường'
+    }
+  });
+});
+
+// Alias /api/sunwin/... routes
+app.get('/api/sunwin/stats', (req,res) => res.redirect('/api/stats'));
+app.get('/api/sunwin/learning', (req,res) => res.redirect('/api/learning'));
+app.get('/api/sunwin/break-detection', (req,res) => res.redirect('/api/break-detection'));
+
+app.get('/', (req,res) => {
+  // Serve HTML if browser, JSON info if API call
+  const accept = req.headers.accept || '';
+  if (accept.includes('text/html')) return res.sendFile(path.join(__dirname,'index.html'));
+  res.json({
+    message:'🎲 API Dự Đoán Tài Xỉu Sun.win - AI v2.0 NÂNG CẤP TOÀN DIỆN 🔥',
+    version:'2.0', game:'Sun.win',
+    endpoints:{
+      prediction:'/api/sunwin/prediction',
+      history:'/api/sunwin/history',
+      predictionHistory:'/api/sunwin/prediction-history',
+      stats:'/api/sunwin/stats',
+      learning:'/api/sunwin/learning',
+      breakDetection:'/api/sunwin/break-detection'
+    },
+    algorithms:['Cầu Bệt','Cầu Đảo 1-1','Cầu 1-2-3','Cầu 3-2-1','Cầu 2-2','Cầu 2-1-2',
+      'Nhịp Nghiêng 5','Nhịp Nghiêng 7','Phân Tích Tổng','Phân Tích Xúc Xắc',
+      'Xu Hướng Mạnh 15','Cầu Nhảy','Gấp Thếp Martingale','Fibonacci',
+      'Chẵn Lẻ Tổng','Xu Hướng Tổng','AI Phát Hiện Nhà Cái','Break Detection']
+  });
+});
 
 // ===== START =====
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌐 Server: http://0.0.0.0:${PORT}`);
+  console.log(`\n🎲 Sun.win API đang chạy tại http://0.0.0.0:${PORT}`);
+  console.log('📊 Endpoints:');
+  console.log(`   - http://localhost:${PORT}/api/sunwin/prediction`);
+  console.log(`   - http://localhost:${PORT}/api/sunwin/stats`);
+  console.log(`   - http://localhost:${PORT}/api/sunwin/history\n`);
   connectWS();
 });

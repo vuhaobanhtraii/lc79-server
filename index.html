@@ -316,6 +316,13 @@ async function refresh() {
       fetch(API + '/api/prediction-history').then(r=>r.json()).catch(()=>null),
       fetch(API + '/api/lichsu').then(r=>r.json()).catch(()=>null)
     ]);
+    // stats field mapping (new format)
+    if (stats && stats.predictionStats) {
+      stats.accuracy = { total: stats.predictionStats.total, correct: stats.predictionStats.correct, wrong: stats.predictionStats.wrong, rate: stats.predictionStats.accuracy };
+    }
+    if (stats && stats.last20Sessions) {
+      stats.last20 = stats.last20Sessions;
+    }
     document.getElementById('status-text').textContent = '🟢 Đang hoạt động - Cập nhật lúc ' + new Date().toLocaleTimeString('vi-VN');
     document.getElementById('status-text').classList.remove('pulse');
     renderPrediction(pred);
