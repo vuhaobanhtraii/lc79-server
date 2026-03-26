@@ -293,25 +293,25 @@ let breakDetectionData = { consecutiveWrong: 0, suspiciousPatterns: [], riskLeve
 
 function updateResults() {
   if(lichSu.length===0)return;
-  const latest=lichSu[0];
   for(let p of predictionHistory){
-    if(p.phien===latest.Phien.toString()&&p.kq==='dang_doi'){
-      p.ket_qua=latest.Ket_qua;
-      p.xuc_xac=`${latest.Xuc_xac_1}-${latest.Xuc_xac_2}-${latest.Xuc_xac_3}`;
-      p.tong=latest.Tong.toString();
-      const ok=p.du_doan===latest.Ket_qua;
-      p.kq=ok?'dung':'sai';
-      learn(p.thuat_toan,ok);
-      if(ok){
-        cWrong=0;
-        breakDetectionData.consecutiveWrong=0;
-        console.log(`✅ [Sun.win] Phiên #${p.phien}: ĐÚNG - ${p.du_doan} (${latest.Xuc_xac_1}-${latest.Xuc_xac_2}-${latest.Xuc_xac_3} = ${latest.Tong})`);
-      } else {
-        cWrong++;
-        breakDetectionData.consecutiveWrong++;
-        console.log(`❌ [Sun.win] Phiên #${p.phien}: SAI - Dự đoán ${p.du_doan}, thực tế ${latest.Ket_qua} (${latest.Xuc_xac_1}-${latest.Xuc_xac_2}-${latest.Xuc_xac_3} = ${latest.Tong})`);
-      }
-      break;
+    if(p.kq!=='dang_doi') continue;
+    // Tìm trong lichSu phiên tương ứng
+    const match = lichSu.find(h => h.Phien.toString() === p.phien);
+    if(!match) continue;
+    p.ket_qua=match.Ket_qua;
+    p.xuc_xac=`${match.Xuc_xac_1}-${match.Xuc_xac_2}-${match.Xuc_xac_3}`;
+    p.tong=match.Tong.toString();
+    const ok=p.du_doan===match.Ket_qua;
+    p.kq=ok?'dung':'sai';
+    learn(p.thuat_toan,ok);
+    if(ok){
+      cWrong=0;
+      breakDetectionData.consecutiveWrong=0;
+      console.log(`✅ [Sun.win] Phiên #${p.phien}: ĐÚNG - ${p.du_doan} (${match.Xuc_xac_1}-${match.Xuc_xac_2}-${match.Xuc_xac_3} = ${match.Tong})`);
+    } else {
+      cWrong++;
+      breakDetectionData.consecutiveWrong++;
+      console.log(`❌ [Sun.win] Phiên #${p.phien}: SAI - Dự đoán ${p.du_doan}, thực tế ${match.Ket_qua} (${match.Xuc_xac_1}-${match.Xuc_xac_2}-${match.Xuc_xac_3} = ${match.Tong})`);
     }
   }
 }
@@ -454,6 +454,7 @@ app.get('/', (req,res) => {
   res.json({
     message:'🎲 API Dự Đoán Tài Xỉu Sun.win - AI v2.0 NÂNG CẤP TOÀN DIỆN 🔥',
     version:'2.0', game:'Sun.win',
+    update:'Nâng cấp toàn diện - AI tự học thông minh như con người',
     endpoints:{
       prediction:'/api/sunwin/prediction',
       history:'/api/sunwin/history',
@@ -462,10 +463,50 @@ app.get('/', (req,res) => {
       learning:'/api/sunwin/learning',
       breakDetection:'/api/sunwin/break-detection'
     },
-    algorithms:['Cầu Bệt','Cầu Đảo 1-1','Cầu 1-2-3','Cầu 3-2-1','Cầu 2-2','Cầu 2-1-2',
-      'Nhịp Nghiêng 5','Nhịp Nghiêng 7','Phân Tích Tổng','Phân Tích Xúc Xắc',
-      'Xu Hướng Mạnh 15','Cầu Nhảy','Gấp Thếp Martingale','Fibonacci',
-      'Chẵn Lẻ Tổng','Xu Hướng Tổng','AI Phát Hiện Nhà Cái','Break Detection']
+    algorithms:[
+      '1. Cầu Bệt (Liên tiếp cùng kết quả)',
+      '2. Cầu Đảo 1-1 (Xen kẽ Tài-Xỉu)',
+      '3. Cầu 1-2-3 (Pattern tăng dần)',
+      '4. Cầu 3-2-1 (Pattern giảm dần)',
+      '5. Cầu 2-2 (2 phiên đổi kết quả) ⭐ MỚI',
+      '6. Cầu 2-1-2 (Pattern phức tạp) ⭐ MỚI',
+      '7. Nhịp Nghiêng 5 (4/5 phiên)',
+      '8. Nhịp Nghiêng 7 (5-6/7 phiên)',
+      '9. Phân Tích Tổng Điểm',
+      '10. Phân Tích Xúc Xắc Đơn Lẻ ⭐ MỚI',
+      '11. Xu Hướng Mạnh 15 ván',
+      '12. Cầu Nhảy/Lung Tung',
+      '13. Gấp Thếp Progressive (Martingale)',
+      '14. Fibonacci Pattern',
+      '15. Phân Tích Chẵn Lẻ Tổng Điểm ⭐ MỚI',
+      '16. Xu Hướng Tổng Điểm Tăng/Giảm ⭐ MỚI',
+      '17. AI Phát Hiện Can Thiệp Nhà Cái 🤖 ⭐ MỚI',
+      '18. Break Detection Nâng Cao 🧠 ⭐ NÂNG CẤP'
+    ],
+    config:{
+      max_history:'500 phiên',
+      check_interval:'3 giây',
+      wait_after_result:'5 giây',
+      cache_ttl:'2 giây',
+      total_algorithms:17,
+      learning_file:'learning.json'
+    },
+    new_features:{
+      ai_house_detection:'🤖 AI phát hiện can thiệp nhà cái - Hiểu ý đồ như con người',
+      advanced_break_detection:'🧠 Phát hiện bẻ cầu nâng cao - 5 cấp độ cảnh báo',
+      smart_learning:'📚 Tự học thông minh - Tự điều chỉnh theo hiệu suất',
+      new_patterns:'⭐ 6 thuật toán mới từ nghiên cứu Sun.win',
+      dice_analysis:'🎲 Phân tích xúc xắc chi tiết - Chẵn/Lẻ/Xu hướng',
+      confidence_boost:'💪 Độ tin cậy được tối ưu dựa trên học máy'
+    },
+    features:{
+      break_detection:'Phát hiện khi nào nhà cái sắp bẻ cầu (5 cấp độ)',
+      house_intervention:'AI phát hiện can thiệp nhà cái tự động',
+      smart_learning:'Tự học và cải thiện liên tục từ mọi kết quả',
+      adaptive_confidence:'Điều chỉnh độ tin cậy theo performance thực tế',
+      pattern_analysis:'17 thuật toán phân tích cầu từ research chuyên sâu',
+      multi_pattern_vote:'Bỏ phiếu đa thuật toán cho dự đoán chính xác hơn'
+    }
   });
 });
 

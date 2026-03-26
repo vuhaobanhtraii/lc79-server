@@ -3,347 +3,374 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎲 Sun.win AI Dự Đoán</title>
+<title>Sun.win AI Dự Đoán</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a1a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
-  .header { background: linear-gradient(135deg, #1a1a3e, #2d1b69); padding: 16px 20px; text-align: center; border-bottom: 2px solid #4a2d9e; }
-  .header h1 { font-size: 1.4rem; color: #c084fc; }
-  .header p { font-size: 0.8rem; color: #888; margin-top: 4px; }
-  .container { max-width: 900px; margin: 0 auto; padding: 16px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  .card { background: #12122a; border: 1px solid #2a2a4a; border-radius: 12px; padding: 16px; }
-  .card-title { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+:root {
+  --bg: #060612;
+  --card: #0d0d20;
+  --border: #1e1e3a;
+  --purple: #8b5cf6;
+  --purple-dim: #4c1d95;
+  --tai: #f97316;
+  --xiu: #3b82f6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --text: #e2e8f0;
+  --muted: #64748b;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
 
-  /* Prediction card */
-  .pred-card { background: linear-gradient(135deg, #12122a, #1a1040); border: 2px solid #4a2d9e; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 12px; }
-  .phien-label { font-size: 0.8rem; color: #888; }
-  .phien-num { font-size: 1.8rem; font-weight: bold; color: #c084fc; }
-  .prediction-result { font-size: 3.5rem; font-weight: 900; margin: 10px 0; letter-spacing: 2px; }
-  .tai { color: #f97316; text-shadow: 0 0 20px #f97316aa; }
-  .xiu { color: #3b82f6; text-shadow: 0 0 20px #3b82f6aa; }
-  .dang-doi { color: #888; }
-  .confidence { display: inline-block; background: #1e1e3f; border: 1px solid #4a2d9e; border-radius: 20px; padding: 4px 16px; font-size: 1rem; color: #c084fc; margin-bottom: 8px; }
-  .pattern-name { font-size: 0.8rem; color: #888; }
-  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; margin-top: 8px; }
-  .status-dung { background: #14532d; color: #4ade80; }
-  .status-sai { background: #450a0a; color: #f87171; }
-  .status-doi { background: #1e1e3f; color: #888; }
+/* HEADER */
+.header { background:linear-gradient(135deg,#0f0f2e,#1a0a3e); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; justify-content:space-between; }
+.header-title { font-size:1.1rem; font-weight:700; color:var(--purple); }
+.header-status { display:flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--muted); }
+.dot { width:8px; height:8px; border-radius:50%; background:var(--green); }
+.dot.offline { background:var(--red); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.dot.live { animation:blink 1.5s infinite; }
 
-  /* Votes */
-  .votes { display: flex; gap: 8px; margin-top: 10px; }
-  .vote-bar { flex: 1; background: #1a1a3a; border-radius: 8px; padding: 8px; text-align: center; }
-  .vote-tai { border: 1px solid #f97316; }
-  .vote-xiu { border: 1px solid #3b82f6; }
-  .vote-num { font-size: 1.4rem; font-weight: bold; }
-  .vote-tai .vote-num { color: #f97316; }
-  .vote-xiu .vote-num { color: #3b82f6; }
-  .vote-label { font-size: 0.7rem; color: #888; }
+/* LAYOUT */
+.container { max-width:960px; margin:0 auto; padding:16px; }
 
-  /* Risk */
-  .risk-safe { border-color: #16a34a !important; }
-  .risk-low_warning { border-color: #ca8a04 !important; }
-  .risk-medium { border-color: #ea580c !important; }
-  .risk-high { border-color: #dc2626 !important; }
-  .risk-critical { border-color: #dc2626 !important; background: #1a0505 !important; }
-  .risk-label { font-size: 1rem; font-weight: bold; }
-  .risk-safe .risk-label { color: #4ade80; }
-  .risk-low_warning .risk-label { color: #fbbf24; }
-  .risk-medium .risk-label { color: #fb923c; }
-  .risk-high .risk-label, .risk-critical .risk-label { color: #f87171; }
-  .risk-prob { font-size: 2rem; font-weight: 900; margin: 6px 0; }
-  .risk-rec { font-size: 0.8rem; color: #aaa; }
+/* MAIN PREDICTION */
+.pred-main { background:linear-gradient(135deg,#0d0d20,#130a2e); border:1px solid var(--purple-dim); border-radius:16px; padding:24px; text-align:center; margin-bottom:16px; position:relative; overflow:hidden; }
+.pred-main::before { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%; background:radial-gradient(circle,rgba(139,92,246,0.05) 0%,transparent 60%); pointer-events:none; }
+.pred-phien { font-size:0.8rem; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+.pred-result { font-size:5rem; font-weight:900; line-height:1; margin:8px 0; letter-spacing:3px; transition:all 0.3s; }
+.pred-result.tai { color:var(--tai); text-shadow:0 0 30px rgba(249,115,22,0.5); }
+.pred-result.xiu { color:var(--xiu); text-shadow:0 0 30px rgba(59,130,246,0.5); }
+.pred-result.wait { color:var(--muted); font-size:3rem; }
+.pred-conf { display:inline-block; background:rgba(139,92,246,0.15); border:1px solid var(--purple-dim); border-radius:20px; padding:4px 18px; font-size:1.1rem; color:var(--purple); font-weight:600; margin:8px 0; }
+.pred-desc { font-size:0.8rem; color:var(--muted); margin-top:4px; }
+.pred-votes { display:flex; gap:10px; margin-top:16px; }
+.vote-box { flex:1; background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; text-align:center; }
+.vote-box.tai-box { border:1px solid rgba(249,115,22,0.3); }
+.vote-box.xiu-box { border:1px solid rgba(59,130,246,0.3); }
+.vote-num { font-size:1.6rem; font-weight:800; }
+.vote-box.tai-box .vote-num { color:var(--tai); }
+.vote-box.xiu-box .vote-num { color:var(--xiu); }
+.vote-label { font-size:0.7rem; color:var(--muted); margin-top:2px; }
 
-  /* Stats */
-  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #1e1e3e; }
-  .stat-row:last-child { border-bottom: none; }
-  .stat-label { font-size: 0.8rem; color: #888; }
-  .stat-val { font-size: 0.9rem; font-weight: bold; color: #c084fc; }
+/* GRID */
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }
+@media(max-width:640px) { .grid2,.grid3 { grid-template-columns:1fr; } }
 
-  /* History table */
-  .history-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-  .history-table th { background: #1a1a3a; color: #888; padding: 8px 6px; text-align: center; font-weight: normal; }
-  .history-table td { padding: 7px 6px; text-align: center; border-bottom: 1px solid #1a1a2e; }
-  .history-table tr:hover td { background: #16163a; }
-  .badge-tai { background: #431407; color: #f97316; padding: 2px 8px; border-radius: 6px; font-weight: bold; }
-  .badge-xiu { background: #172554; color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-weight: bold; }
-  .badge-dung { background: #14532d; color: #4ade80; padding: 2px 6px; border-radius: 6px; }
-  .badge-sai { background: #450a0a; color: #f87171; padding: 2px 6px; border-radius: 6px; }
-  .badge-doi { background: #1e1e3f; color: #888; padding: 2px 6px; border-radius: 6px; }
+/* CARD */
+.card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+.card-label { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
 
-  /* Patterns */
-  .pattern-list { display: flex; flex-direction: column; gap: 6px; }
-  .pattern-item { background: #1a1a3a; border-radius: 8px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; }
-  .pattern-item-name { font-size: 0.75rem; color: #aaa; }
-  .pattern-item-pred { font-size: 0.8rem; font-weight: bold; }
-  .pattern-item-conf { font-size: 0.75rem; color: #c084fc; }
+/* RISK CARD */
+.risk-card { border-radius:12px; padding:16px; }
+.risk-safe { background:#0a1f0a; border:1px solid #166534; }
+.risk-low_warning { background:#1a1500; border:1px solid #854d0e; }
+.risk-medium { background:#1a0f00; border:1px solid #c2410c; }
+.risk-high { background:#1a0505; border:1px solid #991b1b; }
+.risk-critical { background:#1a0000; border:1px solid #7f1d1d; animation:blink 1s infinite; }
+.risk-level { font-size:1.2rem; font-weight:800; }
+.risk-safe .risk-level { color:var(--green); }
+.risk-low_warning .risk-level { color:#fbbf24; }
+.risk-medium .risk-level { color:#fb923c; }
+.risk-high .risk-level, .risk-critical .risk-level { color:var(--red); }
+.risk-prob { font-size:2.5rem; font-weight:900; margin:4px 0; }
+.risk-safe .risk-prob { color:var(--green); }
+.risk-low_warning .risk-prob { color:#fbbf24; }
+.risk-medium .risk-prob { color:#fb923c; }
+.risk-high .risk-prob, .risk-critical .risk-prob { color:var(--red); }
+.risk-rec { font-size:0.8rem; color:var(--muted); margin-top:4px; }
+.risk-signals { margin-top:8px; }
+.risk-signal-item { font-size:0.72rem; color:var(--muted); padding:2px 0; }
 
-  /* Pulse animation */
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-  .pulse { animation: pulse 2s infinite; }
+/* STATS */
+.stat-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--border); }
+.stat-row:last-child { border-bottom:none; }
+.stat-label { font-size:0.8rem; color:var(--muted); }
+.stat-val { font-size:0.9rem; font-weight:600; }
 
-  /* Countdown */
-  .countdown { font-size: 0.75rem; color: #888; margin-top: 6px; }
+/* PATTERNS */
+.pattern-item { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:rgba(255,255,255,0.02); border-radius:8px; margin-bottom:6px; border:1px solid var(--border); }
+.pattern-name { font-size:0.75rem; color:var(--muted); }
+.pattern-desc { font-size:0.7rem; color:#475569; margin-top:1px; }
+.pattern-right { text-align:right; }
+.pattern-pred { font-size:0.85rem; font-weight:700; }
+.pattern-pred.tai { color:var(--tai); }
+.pattern-pred.xiu { color:var(--xiu); }
+.pattern-conf { font-size:0.7rem; color:var(--purple); }
 
-  /* Full width */
-  .full { grid-column: 1 / -1; }
+/* HISTORY TABLE */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+th { background:rgba(255,255,255,0.03); color:var(--muted); padding:8px 10px; text-align:center; font-weight:500; border-bottom:1px solid var(--border); white-space:nowrap; }
+td { padding:7px 10px; text-align:center; border-bottom:1px solid rgba(30,30,58,0.5); }
+tr:hover td { background:rgba(139,92,246,0.04); }
+.badge { display:inline-block; padding:2px 8px; border-radius:6px; font-weight:600; font-size:0.72rem; }
+.badge-tai { background:rgba(249,115,22,0.15); color:var(--tai); }
+.badge-xiu { background:rgba(59,130,246,0.15); color:var(--xiu); }
+.badge-dung { background:rgba(34,197,94,0.15); color:var(--green); }
+.badge-sai { background:rgba(239,68,68,0.15); color:var(--red); }
+.badge-wait { background:rgba(100,116,139,0.15); color:var(--muted); }
 
-  /* Scrollable */
-  .scrollable { max-height: 320px; overflow-y: auto; }
-  .scrollable::-webkit-scrollbar { width: 4px; }
-  .scrollable::-webkit-scrollbar-track { background: #0a0a1a; }
-  .scrollable::-webkit-scrollbar-thumb { background: #4a2d9e; border-radius: 2px; }
+/* SCROLL */
+.scroll-box { max-height:300px; overflow-y:auto; }
+.scroll-box::-webkit-scrollbar { width:3px; }
+.scroll-box::-webkit-scrollbar-track { background:transparent; }
+.scroll-box::-webkit-scrollbar-thumb { background:var(--purple-dim); border-radius:2px; }
 
-  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .full { grid-column: 1; } }
+/* HOUSE */
+.house-detected { color:var(--red); font-weight:700; margin-bottom:8px; }
+.house-ok { color:var(--green); }
+
+/* COUNTDOWN */
+.countdown { font-size:0.72rem; color:var(--muted); margin-top:8px; }
+
+/* FULL WIDTH */
+.full { grid-column:1/-1; }
+
+/* TABS */
+.tabs { display:flex; gap:4px; margin-bottom:12px; }
+.tab { padding:6px 14px; border-radius:8px; font-size:0.78rem; cursor:pointer; border:1px solid var(--border); color:var(--muted); background:transparent; transition:all 0.2s; }
+.tab.active { background:var(--purple-dim); border-color:var(--purple); color:white; }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
 </style>
 </head>
 <body>
+
 <div class="header">
-  <h1>🎲 Sun.win AI Dự Đoán Tài Xỉu</h1>
-  <p id="status-text" class="pulse">Đang kết nối...</p>
+  <div class="header-title">🎲 Sun.win AI</div>
+  <div class="header-status">
+    <div class="dot live" id="dot"></div>
+    <span id="status-text">Đang kết nối...</span>
+  </div>
 </div>
 
 <div class="container">
-  <!-- Main prediction -->
-  <div class="pred-card" id="pred-card">
-    <div class="phien-label">PHIÊN DỰ ĐOÁN</div>
-    <div class="phien-num" id="pred-phien">---</div>
-    <div class="prediction-result dang-doi" id="pred-result">⏳</div>
-    <div class="confidence" id="pred-conf">0%</div>
-    <div class="pattern-name" id="pred-pattern">Đang phân tích...</div>
+
+  <!-- MAIN PREDICTION -->
+  <div class="pred-main">
+    <div class="pred-phien">Dự đoán phiên <span id="pred-phien">---</span></div>
+    <div class="pred-result wait" id="pred-result">⏳</div>
+    <div class="pred-conf" id="pred-conf">--%</div>
+    <div class="pred-desc" id="pred-desc">Đang phân tích...</div>
     <div class="countdown" id="countdown"></div>
-    <div class="votes">
-      <div class="vote-bar vote-tai">
+    <div class="pred-votes">
+      <div class="vote-box tai-box">
         <div class="vote-num" id="tai-votes">0</div>
         <div class="vote-label">Tài votes</div>
       </div>
-      <div class="vote-bar vote-xiu">
+      <div class="vote-box xiu-box">
         <div class="vote-num" id="xiu-votes">0</div>
         <div class="vote-label">Xỉu votes</div>
       </div>
     </div>
   </div>
 
-  <div class="grid">
-    <!-- Break detection -->
-    <div class="card" id="risk-card">
-      <div class="card-title">⚠️ Phát Hiện Bẻ Cầu</div>
-      <div class="risk-label" id="risk-label">---</div>
+  <!-- ROW 1 -->
+  <div class="grid2">
+    <!-- RISK -->
+    <div class="risk-card risk-safe" id="risk-card">
+      <div class="card-label">⚠️ Phát Hiện Bẻ Cầu</div>
+      <div class="risk-level" id="risk-level">SAFE</div>
       <div class="risk-prob" id="risk-prob">0%</div>
       <div class="risk-rec" id="risk-rec">Đang phân tích...</div>
-      <div id="risk-signals" style="margin-top:8px;font-size:0.75rem;color:#888;"></div>
+      <div class="risk-signals" id="risk-signals"></div>
     </div>
 
-    <!-- Stats -->
+    <!-- STATS -->
     <div class="card">
-      <div class="card-title">📊 Thống Kê</div>
-      <div class="stat-row"><span class="stat-label">Tổng dự đoán</span><span class="stat-val" id="stat-total">0</span></div>
-      <div class="stat-row"><span class="stat-label">Đúng</span><span class="stat-val" style="color:#4ade80" id="stat-correct">0</span></div>
-      <div class="stat-row"><span class="stat-label">Sai</span><span class="stat-val" style="color:#f87171" id="stat-wrong">0</span></div>
-      <div class="stat-row"><span class="stat-label">Tỷ lệ đúng</span><span class="stat-val" id="stat-rate">0%</span></div>
-      <div class="stat-row"><span class="stat-label">20 phiên: Tài</span><span class="stat-val" style="color:#f97316" id="stat-tai">0</span></div>
-      <div class="stat-row"><span class="stat-label">20 phiên: Xỉu</span><span class="stat-val" style="color:#60a5fa" id="stat-xiu">0</span></div>
+      <div class="card-label">📊 Thống Kê</div>
+      <div class="stat-row"><span class="stat-label">Tổng dự đoán</span><span class="stat-val" id="s-total">0</span></div>
+      <div class="stat-row"><span class="stat-label">Đúng</span><span class="stat-val" style="color:var(--green)" id="s-correct">0</span></div>
+      <div class="stat-row"><span class="stat-label">Sai</span><span class="stat-val" style="color:var(--red)" id="s-wrong">0</span></div>
+      <div class="stat-row"><span class="stat-label">Tỷ lệ đúng</span><span class="stat-val" style="color:var(--purple)" id="s-rate">0%</span></div>
+      <div class="stat-row"><span class="stat-label">20 phiên Tài</span><span class="stat-val" style="color:var(--tai)" id="s-tai">0</span></div>
+      <div class="stat-row"><span class="stat-label">20 phiên Xỉu</span><span class="stat-val" style="color:var(--xiu)" id="s-xiu">0</span></div>
+    </div>
+  </div>
+
+  <!-- ROW 2 -->
+  <div class="grid2">
+    <!-- TOP PATTERNS -->
+    <div class="card">
+      <div class="card-label">🔍 Patterns Phát Hiện</div>
+      <div id="pattern-list"><div style="color:var(--muted);font-size:0.8rem">Đang phân tích...</div></div>
     </div>
 
-    <!-- Top patterns -->
+    <!-- HOUSE INTERVENTION -->
     <div class="card">
-      <div class="card-title">🔍 Top Patterns Phát Hiện</div>
-      <div class="pattern-list" id="pattern-list">
-        <div style="color:#888;font-size:0.8rem">Đang phân tích...</div>
+      <div class="card-label">🤖 AI Phát Hiện Nhà Cái</div>
+      <div id="house-content" style="color:var(--muted);font-size:0.85rem">Đang theo dõi...</div>
+    </div>
+  </div>
+
+  <!-- TABS: HISTORY -->
+  <div class="card full">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('pred')">📋 Lịch Sử Dự Đoán</button>
+      <button class="tab" onclick="switchTab('game')">🎲 Kết Quả Thực</button>
+    </div>
+
+    <div class="tab-content active" id="tab-pred">
+      <div class="scroll-box">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Phiên</th><th>Dự đoán</th><th>Tỷ lệ</th><th>Thuật toán</th><th>Xúc xắc</th><th>Tổng</th><th>Thực tế</th><th>Kết quả</th></tr></thead>
+            <tbody id="pred-tbody"><tr><td colspan="8" style="color:var(--muted);padding:20px">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <!-- House intervention -->
-    <div class="card" id="house-card">
-      <div class="card-title">🤖 AI Phát Hiện Nhà Cái</div>
-      <div id="house-content" style="color:#888;font-size:0.85rem">Đang theo dõi...</div>
-    </div>
-
-    <!-- Prediction history -->
-    <div class="card full">
-      <div class="card-title">📋 Lịch Sử Dự Đoán</div>
-      <div class="scrollable">
-        <table class="history-table">
-          <thead>
-            <tr>
-              <th>Phiên</th>
-              <th>Dự đoán</th>
-              <th>Tỷ lệ</th>
-              <th>Thuật toán</th>
-              <th>Xúc xắc</th>
-              <th>Tổng</th>
-              <th>Thực tế</th>
-              <th>Kết quả</th>
-            </tr>
-          </thead>
-          <tbody id="pred-history-body">
-            <tr><td colspan="8" style="color:#888;padding:20px">Đang tải...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Game history -->
-    <div class="card full">
-      <div class="card-title">🎲 Lịch Sử Kết Quả Thực</div>
-      <div class="scrollable">
-        <table class="history-table">
-          <thead>
-            <tr><th>Phiên</th><th>🎲1</th><th>🎲2</th><th>🎲3</th><th>Tổng</th><th>Kết quả</th></tr>
-          </thead>
-          <tbody id="game-history-body">
-            <tr><td colspan="6" style="color:#888;padding:20px">Đang tải...</td></tr>
-          </tbody>
-        </table>
+    <div class="tab-content" id="tab-game">
+      <div class="scroll-box">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Phiên</th><th>🎲1</th><th>🎲2</th><th>🎲3</th><th>Tổng</th><th>Kết quả</th></tr></thead>
+            <tbody id="game-tbody"><tr><td colspan="6" style="color:var(--muted);padding:20px">Đang tải...</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
+
 </div>
 
 <script>
-const API = '';
-let refreshTimer = null;
-let countdownVal = 8;
+const API = 'https://lc79-server-production.up.railway.app';
+let cd = 8;
+let cdTimer = null;
 
-function setRiskClass(card, risk) {
-  card.className = 'card risk-' + (risk || 'safe');
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (name==='pred'&&i===0)||(name==='game'&&i===1)));
+  document.getElementById('tab-pred').classList.toggle('active', name==='pred');
+  document.getElementById('tab-game').classList.toggle('active', name==='game');
 }
 
-function renderPrediction(data) {
-  if (!data || data.du_doan === 'dang_doi') return;
-  document.getElementById('pred-phien').textContent = '#' + data.phien;
-  const el = document.getElementById('pred-result');
-  el.textContent = data.du_doan;
-  el.className = 'prediction-result ' + (data.du_doan === 'Tài' ? 'tai' : data.du_doan === 'Xỉu' ? 'xiu' : 'dang-doi');
-  document.getElementById('pred-conf').textContent = data.ti_le_thang;
-  document.getElementById('pred-pattern').textContent = data.mo_ta || data.thuat_toan;
-  document.getElementById('tai-votes').textContent = data.tai_votes || 0;
-  document.getElementById('xiu-votes').textContent = data.xiu_votes || 0;
+function riskClass(risk) {
+  return 'risk-card risk-' + (risk||'safe');
+}
 
-  if (data.break_detection) {
-    const bd = data.break_detection;
-    const rcard = document.getElementById('risk-card');
-    setRiskClass(rcard, bd.risk_level);
-    document.getElementById('risk-label').textContent = bd.risk_level.toUpperCase().replace('_',' ');
-    document.getElementById('risk-prob').textContent = bd.break_probability;
-    document.getElementById('risk-rec').textContent = bd.recommendation;
-    const sigEl = document.getElementById('risk-signals');
-    sigEl.innerHTML = (bd.signals||[]).map(s=>`<div>• ${s}</div>`).join('');
+function renderPred(d) {
+  if (!d || d.du_doan === 'dang_doi') return;
+  document.getElementById('pred-phien').textContent = '#' + d.phien;
+  const el = document.getElementById('pred-result');
+  el.textContent = d.du_doan;
+  el.className = 'pred-result ' + (d.du_doan==='Tài'?'tai':d.du_doan==='Xỉu'?'xiu':'wait');
+  document.getElementById('pred-conf').textContent = d.ti_le || d.ti_le_thang || '--%';
+  document.getElementById('pred-desc').textContent = d.mo_ta || d.thuat_toan || '';
+  document.getElementById('tai-votes').textContent = d.tai_votes || 0;
+  document.getElementById('xiu-votes').textContent = d.xiu_votes || 0;
+
+  if (d.break_detection) {
+    const b = d.break_detection;
+    const rc = document.getElementById('risk-card');
+    rc.className = riskClass(b.risk_level);
+    document.getElementById('risk-level').textContent = (b.risk_level||'safe').toUpperCase().replace('_',' ');
+    document.getElementById('risk-prob').textContent = b.break_probability;
+    document.getElementById('risk-rec').textContent = b.recommendation;
+    document.getElementById('risk-signals').innerHTML = (b.signals||[]).map(s=>`<div class="risk-signal-item">${s}</div>`).join('');
   }
 
-  if (data.top_patterns) {
-    const list = document.getElementById('pattern-list');
-    list.innerHTML = data.top_patterns.map(p => `
+  if (d.top_patterns && d.top_patterns.length) {
+    document.getElementById('pattern-list').innerHTML = d.top_patterns.map(p=>`
       <div class="pattern-item">
-        <div>
-          <div class="pattern-item-name">${p.pattern}</div>
-          <div style="font-size:0.7rem;color:#666">${p.description||''}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="pattern-item-pred ${p.prediction==='Tài'?'tai':'xiu'}">${p.prediction}</div>
-          <div class="pattern-item-conf">${p.confidence}</div>
+        <div><div class="pattern-name">${p.pattern}</div><div class="pattern-desc">${p.description||''}</div></div>
+        <div class="pattern-right">
+          <div class="pattern-pred ${p.prediction==='Tài'?'tai':'xiu'}">${p.prediction}</div>
+          <div class="pattern-conf">${p.confidence}</div>
         </div>
       </div>`).join('');
   }
 
-  if (data.house_intervention) {
-    const hi = data.house_intervention;
+  if (d.house_intervention) {
+    const h = d.house_intervention;
     const hc = document.getElementById('house-content');
-    if (hi.detected) {
-      hc.innerHTML = `<div style="color:#f87171;font-weight:bold;margin-bottom:6px">🚨 PHÁT HIỆN CAN THIỆP (${hi.confidence})</div>` +
-        (hi.signals||[]).map(s=>`<div style="font-size:0.75rem;color:#aaa;margin-top:3px">• ${s}</div>`).join('');
+    if (h.detected) {
+      hc.innerHTML = `<div class="house-detected">🚨 PHÁT HIỆN CAN THIỆP (${h.confidence})</div>` +
+        (h.signals||[]).map(s=>`<div style="font-size:0.75rem;color:var(--muted);margin-top:3px">• ${s}</div>`).join('');
     } else {
-      hc.innerHTML = '<div style="color:#4ade80">✅ Không phát hiện can thiệp bất thường</div>';
+      hc.innerHTML = `<div class="house-ok">✅ Không phát hiện can thiệp bất thường</div>`;
     }
   }
 }
 
-function renderStats(data) {
-  if (!data) return;
-  if (data.accuracy) {
-    document.getElementById('stat-total').textContent = data.accuracy.total;
-    document.getElementById('stat-correct').textContent = data.accuracy.correct;
-    document.getElementById('stat-wrong').textContent = data.accuracy.wrong;
-    document.getElementById('stat-rate').textContent = data.accuracy.rate;
-  }
-  if (data.last20) {
-    document.getElementById('stat-tai').textContent = data.last20.tai;
-    document.getElementById('stat-xiu').textContent = data.last20.xiu;
-  }
+function renderStats(d) {
+  if (!d) return;
+  const ps = d.predictionStats || d.accuracy || {};
+  const l20 = d.last20Sessions || d.last20 || {};
+  document.getElementById('s-total').textContent = ps.total || 0;
+  document.getElementById('s-correct').textContent = ps.correct || 0;
+  document.getElementById('s-wrong').textContent = ps.wrong || 0;
+  document.getElementById('s-rate').textContent = ps.accuracy || ps.rate || '0%';
+  document.getElementById('s-tai').textContent = l20.tai || 0;
+  document.getElementById('s-xiu').textContent = l20.xiu || 0;
 }
 
 function renderPredHistory(list) {
-  const tbody = document.getElementById('pred-history-body');
-  if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="color:#888;padding:20px">Chưa có dữ liệu</td></tr>'; return; }
-  tbody.innerHTML = list.slice(0,50).map(p => {
-    const kqClass = p.kq_du_doan === 'dung' ? 'badge-dung' : p.kq_du_doan === 'sai' ? 'badge-sai' : 'badge-doi';
-    const kqText = p.kq_du_doan === 'dung' ? '✅ Đúng' : p.kq_du_doan === 'sai' ? '❌ Sai' : '⏳';
-    const predClass = p.du_doan === 'Tài' ? 'badge-tai' : 'badge-xiu';
-    const ketquaClass = p.ket_qua === 'Tài' ? 'badge-tai' : p.ket_qua === 'Xỉu' ? 'badge-xiu' : 'badge-doi';
-    const xucxac = p.xuc_xac_1 !== 'dang_doi' ? `${p.xuc_xac_1}-${p.xuc_xac_2}-${p.xuc_xac_3}` : '---';
+  const tb = document.getElementById('pred-tbody');
+  if (!list || !list.length) { tb.innerHTML = '<tr><td colspan="8" style="color:var(--muted);padding:16px">Chưa có dữ liệu</td></tr>'; return; }
+  tb.innerHTML = list.slice(0,60).map(p => {
+    const kq = p.kq || p.kq_du_doan;
+    const kqBadge = kq==='dung'?'badge-dung':kq==='sai'?'badge-sai':'badge-wait';
+    const kqText = kq==='dung'?'✅ Đúng':kq==='sai'?'❌ Sai':'⏳';
+    const pred = p.du_doan;
+    const xucxac = (p.xuc_xac && p.xuc_xac!=='---') ? p.xuc_xac : (p.xuc_xac_1&&p.xuc_xac_1!=='dang_doi'?`${p.xuc_xac_1}-${p.xuc_xac_2}-${p.xuc_xac_3}`:'---');
+    const tong = p.tong && p.tong!=='---' && p.tong!=='dang_doi' ? p.tong : '---';
+    const ketqua = p.ket_qua && p.ket_qua!=='---' && p.ket_qua!=='dang_doi' ? `<span class="badge badge-${p.ket_qua==='Tài'?'tai':'xiu'}">${p.ket_qua}</span>` : '---';
     return `<tr>
-      <td style="color:#c084fc">#${p.phien}</td>
-      <td><span class="${predClass}">${p.du_doan}</span></td>
-      <td style="color:#c084fc">${p.ti_le_thang}</td>
-      <td style="color:#888;font-size:0.7rem">${p.thuat_toan||''}</td>
-      <td style="color:#aaa">${xucxac}</td>
-      <td style="color:#aaa">${p.tong !== 'dang_doi' ? p.tong : '---'}</td>
-      <td>${p.ket_qua !== 'dang_doi' ? `<span class="${ketquaClass}">${p.ket_qua}</span>` : '---'}</td>
-      <td><span class="${kqClass}">${kqText}</span></td>
+      <td style="color:var(--purple)">#${p.phien}</td>
+      <td><span class="badge badge-${pred==='Tài'?'tai':'xiu'}">${pred}</span></td>
+      <td style="color:var(--purple)">${p.ti_le||p.ti_le_thang||''}</td>
+      <td style="color:var(--muted);font-size:0.7rem">${p.thuat_toan||''}</td>
+      <td style="color:var(--muted)">${xucxac}</td>
+      <td>${tong}</td>
+      <td>${ketqua}</td>
+      <td><span class="badge ${kqBadge}">${kqText}</span></td>
     </tr>`;
   }).join('');
 }
 
 function renderGameHistory(list) {
-  const tbody = document.getElementById('game-history-body');
-  if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" style="color:#888;padding:20px">Chưa có dữ liệu</td></tr>'; return; }
-  tbody.innerHTML = list.slice(0,50).map(h => {
-    const kqClass = h.Ket_qua === 'Tài' ? 'badge-tai' : 'badge-xiu';
-    return `<tr>
-      <td style="color:#c084fc">#${h.Phien}</td>
-      <td>${h.Xuc_xac_1}</td><td>${h.Xuc_xac_2}</td><td>${h.Xuc_xac_3}</td>
-      <td style="color:#aaa">${h.Tong}</td>
-      <td><span class="${kqClass}">${h.Ket_qua}</span></td>
-    </tr>`;
-  }).join('');
+  const tb = document.getElementById('game-tbody');
+  if (!list || !list.length) { tb.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:16px">Chưa có dữ liệu</td></tr>'; return; }
+  tb.innerHTML = list.slice(0,60).map(h => `<tr>
+    <td style="color:var(--purple)">#${h.Phien||h.phien}</td>
+    <td>${h.Xuc_xac_1||h.xuc_xac_1}</td>
+    <td>${h.Xuc_xac_2||h.xuc_xac_2}</td>
+    <td>${h.Xuc_xac_3||h.xuc_xac_3}</td>
+    <td>${h.Tong||h.tong}</td>
+    <td><span class="badge badge-${(h.Ket_qua||h.ket_qua)==='Tài'?'tai':'xiu'}">${h.Ket_qua||h.ket_qua}</span></td>
+  </tr>`).join('');
 }
 
 async function refresh() {
   try {
-    const [pred, stats, predHist, gameHist] = await Promise.all([
-      fetch(API + '/api/prediction').then(r=>r.json()).catch(()=>null),
-      fetch(API + '/api/stats').then(r=>r.json()).catch(()=>null),
-      fetch(API + '/api/prediction-history').then(r=>r.json()).catch(()=>null),
-      fetch(API + '/api/lichsu').then(r=>r.json()).catch(()=>null)
+    const [pred, stats, predH, gameH] = await Promise.all([
+      fetch(API+'/api/sunwin/prediction').then(r=>r.json()).catch(()=>null),
+      fetch(API+'/api/stats').then(r=>r.json()).catch(()=>null),
+      fetch(API+'/api/prediction-history').then(r=>r.json()).catch(()=>null),
+      fetch(API+'/api/lichsu').then(r=>r.json()).catch(()=>null)
     ]);
-    // stats field mapping (new format)
-    if (stats && stats.predictionStats) {
-      stats.accuracy = { total: stats.predictionStats.total, correct: stats.predictionStats.correct, wrong: stats.predictionStats.wrong, rate: stats.predictionStats.accuracy };
-    }
-    if (stats && stats.last20Sessions) {
-      stats.last20 = stats.last20Sessions;
-    }
-    document.getElementById('status-text').textContent = '🟢 Đang hoạt động - Cập nhật lúc ' + new Date().toLocaleTimeString('vi-VN');
-    document.getElementById('status-text').classList.remove('pulse');
-    renderPrediction(pred);
+    document.getElementById('dot').className = 'dot live';
+    document.getElementById('status-text').textContent = 'Live · ' + new Date().toLocaleTimeString('vi-VN');
+    renderPred(pred);
     renderStats(stats);
-    renderPredHistory(predHist);
-    renderGameHistory(gameHist);
-  } catch (e) {
-    document.getElementById('status-text').textContent = '🔴 Lỗi kết nối - Đang thử lại...';
+    renderPredHistory(predH);
+    renderGameHistory(gameH);
+  } catch(e) {
+    document.getElementById('dot').className = 'dot offline';
+    document.getElementById('status-text').textContent = 'Mất kết nối';
   }
 }
 
 function startCountdown() {
-  countdownVal = 8;
-  clearInterval(refreshTimer);
-  refreshTimer = setInterval(() => {
-    countdownVal--;
-    document.getElementById('countdown').textContent = `Cập nhật sau ${countdownVal}s`;
-    if (countdownVal <= 0) {
-      refresh();
-      countdownVal = 8;
-    }
+  cd = 8;
+  clearInterval(cdTimer);
+  cdTimer = setInterval(() => {
+    cd--;
+    document.getElementById('countdown').textContent = `Cập nhật sau ${cd}s`;
+    if (cd <= 0) { refresh(); cd = 8; }
   }, 1000);
 }
 
