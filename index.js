@@ -291,7 +291,7 @@ function buildHistoricalPredictions() {
   console.log('[📊] Đang tạo lịch sử dự đoán 50 phiên...');
 
   const built = [];
-  const limit = Math.min(50, lichSu.length - 20);
+  const limit = Math.min(500, lichSu.length - 20);
 
   for (let i = 0; i < limit; i++) {
     const histAtTime = lichSu.slice(i + 1);
