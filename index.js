@@ -48,10 +48,15 @@ function connectWS() {
       const { cmd, sid, d1, d2, d3 } = data[1];
 
       if (cmd === 1005 && data[1].htr) {
-        lichSu = data[1].htr.map(p => {
+        const newData = data[1].htr.map(p => {
           const t = p.d1+p.d2+p.d3;
           return { Phien:p.sid, Xuc_xac_1:p.d1, Xuc_xac_2:p.d2, Xuc_xac_3:p.d3, Tong:t, Ket_qua:t>10?'Tài':'Xỉu' };
         }).reverse();
+        const existingPhiens = new Set(lichSu.map(x => x.Phien));
+        const toAdd = newData.filter(x => !existingPhiens.has(x.Phien));
+        if (toAdd.length > 0) {
+          lichSu = [...lichSu, ...toAdd].sort((a,b) => b.Phien - a.Phien).slice(0, 500);
+        }
         console.log(`[📋] Lịch sử: ${lichSu.length} phiên`);
         buildHistoricalPredictions();
         runPrediction();
